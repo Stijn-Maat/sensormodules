@@ -10,17 +10,15 @@
 #include <string.h>
 
 uint8_t pipe[5] = {0x48, 0x76, 0x41, 0x30, 0x31}; // pipe address "HvA01"
+
+//used fuctions
 void init_nrf(void);
 void send(char *command);
-void receive(char *message);
-
-char buffer[32];
-char packet [32];
-uint16_t length;
-uint16_t c;
+void receive(void);
 
 int main(void)
-{
+{	
+	// initialisations
 	init_stream(F_CPU);
 	init_nrf();
 
@@ -33,7 +31,7 @@ int main(void)
 	sei();
 
     char command[50]; 
-
+	
     while (1) {
 	    uint16_t userInput = uartF0_getc();
 	    if (userInput != UART_NO_DATA) {
@@ -49,13 +47,11 @@ int main(void)
 		}
 		
 		else if (userInput == UART_NO_DATA){
-			receive(command);
+			receive();
 		}
-		
     }
-
     return 0;
-    }
+}
 
 void init_nrf(void)
 {
@@ -72,7 +68,6 @@ void init_nrf(void)
 	nrfClearInterruptBits();                   // Clear interrupt bits
 	nrfFlushRx();                              // Flush fifo's
 	nrfFlushTx();
-	//nrfOpenWritingPipe(pipe);                  // Pipe for sending
 	nrfOpenReadingPipe(0, pipe);               // Necessary for acknowledge
 	nrfStartListening();
 }
@@ -87,23 +82,23 @@ void send(char *command)
 	nrfStartListening();
 }
 
-void receive(char * message){
-	
+void receive(void)
+{
+	char packet [32];
 	nrfOpenReadingPipe(0, pipe);
 
 	uint8_t tx_ds, max_rt, rx_dr;
 
 	nrfWhatHappened(&tx_ds, &max_rt, &rx_dr);
-
-	if(rx_dr){
-		nrfRead(packet, 8);
-		for (int i=0; i<8; i++)
-		{	
-			printf("%c \n",(char)packet[i]);
-			packet[i]=0;
-			PORTF.DIRSET = PIN0_bm;
-			PORTF.OUTTGL = PIN0_bm;
-		}
+	
+	if (rx_dr)
+	{	
+		uint8_t length = nrfGetDynamicPayloadSize();
+		nrfRead(packet, 32); // Lees 32 bytes in plaats van 8
+		packet[length] = '\0';
+		printf("\nOntvangen bericht: %s\n", packet); // Druk het volledige ontvangen bericht af
+		
+		PORTF.DIRSET = PIN0_bm;
+		PORTF.OUTTGL = PIN0_bm;
 	}
-
 }

@@ -12,8 +12,10 @@
 uint8_t pipe[5] = {0x48, 0x76, 0x41, 0x30, 0x31}; // pipe address "HvA01"
 void init_nrf(void);
 void send(char *command);
+void receive(char *message);
 
 char buffer[32];
+char packet [32];
 uint16_t length;
 uint16_t c;
 
@@ -45,6 +47,11 @@ int main(void)
 			    }
 		    }
 		}
+		
+		else if (userInput == UART_NO_DATA){
+			receive(command);
+		}
+		
     }
 
     return 0;
@@ -65,7 +72,7 @@ void init_nrf(void)
 	nrfClearInterruptBits();                   // Clear interrupt bits
 	nrfFlushRx();                              // Flush fifo's
 	nrfFlushTx();
-	nrfOpenWritingPipe(pipe);                  // Pipe for sending
+	//nrfOpenWritingPipe(pipe);                  // Pipe for sending
 	nrfOpenReadingPipe(0, pipe);               // Necessary for acknowledge
 	nrfStartListening();
 }
@@ -78,4 +85,25 @@ void send(char *command)
 	uint8_t response = nrfWrite((uint8_t *)command, strlen(command));
 	printf("\nVerzonden: %s\nAck ontvangen: %s\n", command, response > 0 ? "JA" : "NEE");
 	nrfStartListening();
+}
+
+void receive(char * message){
+	
+	nrfOpenReadingPipe(0, pipe);
+
+	uint8_t tx_ds, max_rt, rx_dr;
+
+	nrfWhatHappened(&tx_ds, &max_rt, &rx_dr);
+
+	if(rx_dr){
+		nrfRead(packet, 8);
+		for (int i=0; i<8; i++)
+		{	
+			printf("%c \n",(char)packet[i]);
+			packet[i]=0;
+			PORTF.DIRSET = PIN0_bm;
+			PORTF.OUTTGL = PIN0_bm;
+		}
+	}
+
 }

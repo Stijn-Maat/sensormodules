@@ -30,16 +30,25 @@ int main(void)
 	PORTF.OUTTGL = PIN1_bm;
 	sei();
 
-	while (1)
-	{
-		c = uartF0_getc();
-		if (c == '\r')
-		{
-			char command[] = "YourDataHere"; // Replace with the data you want to send
-			send(command);
+    char command[50]; 
+
+    while (1) {
+	    uint16_t userInput = uartF0_getc();
+	    if (userInput != UART_NO_DATA) {
+		    if (userInput == '\n' || userInput == '\r') {
+			    command[strlen(command)] = '\0';
+			    send(command);
+			    memset(command, 0, sizeof(command));
+			    } else {
+			    if (strlen(command) < sizeof(command) - 1) {
+				    command[strlen(command)] = (char)userInput;
+			    }
+		    }
 		}
-	}
-}
+    }
+
+    return 0;
+    }
 
 void init_nrf(void)
 {
@@ -58,6 +67,7 @@ void init_nrf(void)
 	nrfFlushTx();
 	nrfOpenWritingPipe(pipe);                  // Pipe for sending
 	nrfOpenReadingPipe(0, pipe);               // Necessary for acknowledge
+	nrfStartListening();
 }
 
 void send(char *command)

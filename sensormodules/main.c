@@ -90,10 +90,7 @@ void send(char *command)
 void receive(void)
 {
 	char packet [32];
-	nrfOpenReadingPipe(0, pipe);
-
 	uint8_t tx_ds, max_rt, rx_dr;
-
 	nrfWhatHappened(&tx_ds, &max_rt, &rx_dr);
 	
 	if (rx_dr)

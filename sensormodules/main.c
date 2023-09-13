@@ -12,24 +12,27 @@
 #define TEAM_NUMMER 0x10
 
 uint8_t pipe[5] = {0x48, 0x76, 0x41, 0x30, 0x31}; // pipe address "HvA01"
+uint8_t IDpipe[5] = {0x32, 0x73, 0x65, 0x78, 0x79}; 
+	
 
-//used fuctions
+//used functions
 void init_nrf(void);
 void send(char *command);
 void receive(void);
 
 int main(void)
-{
+	{
 	PORTF.DIRSET = PIN1_bm;
 	PORTF.OUTSET = PIN1_bm;
-	// initialisations
+
+	// initializations
 	init_stream(F_CPU);
 	init_nrf();
 
 	PORTD.DIRCLR=PIN0_bm|PIN1_bm|PIN2_bm|PIN3_bm;
 	uint8_t id;
 	id=TEAM_NUMMER|(PORTD.IN & PIN0_bm)|(PORTD.IN & PIN1_bm)|(PORTD.IN & PIN2_bm)|(PORTD.IN & PIN3_bm);
-	
+
 	sei();
 	printf("%x\n",id);
 	printf("Enter Message: ");
@@ -64,9 +67,9 @@ void init_nrf(void)
 	nrfspiInit();                              // Initialize SPI
 	nrfBegin();                                // Initialize radio module
 	nrfSetRetries(NRF_SETUP_ARD_1000US_gc,     // Auto Retransmission Delay: 1000 us
-	NRF_SETUP_ARC_8RETRANSMIT_gc); // Auto Retransmission Count: 8 retries
-	nrfSetPALevel(NRF_RF_SETUP_PWR_6DBM_gc);  // Power Control: -6 dBm
-	nrfSetDataRate(NRF_RF_SETUP_RF_DR_250K_gc); // Data Rate: 250 Kbps
+	NRF_SETUP_ARC_8RETRANSMIT_gc);			   // Auto Retransmission Count: 8 retries
+	nrfSetPALevel(NRF_RF_SETUP_PWR_6DBM_gc);   // Power Control: -6 dBm
+	nrfSetDataRate(NRF_RF_SETUP_RF_DR_250K_gc);// Data Rate: 250 Kbps
 	nrfSetCRCLength(NRF_CONFIG_CRC_16_gc);     // CRC Check
 	nrfSetChannel(54);                         // Channel: 54
 	nrfSetAutoAck(1);                          // Auto Acknowledge on
@@ -74,9 +77,12 @@ void init_nrf(void)
 	nrfClearInterruptBits();                   // Clear interrupt bits
 	nrfFlushRx();                              // Flush fifo's
 	nrfFlushTx();
+	
+	nrfOpenWritingPipe(pipe);                  // Pipe for sending
+	nrfOpenWritingPipe(IDpipe);
 	nrfOpenReadingPipe(0, pipe);               // Necessary for acknowledge
+	nrfOpenReadingPipe(1, IDpipe);
 	nrfStartListening();
-	nrfOpenWritingPipe(pipe);  
 }
 
 void send(char *command)
@@ -89,7 +95,11 @@ void send(char *command)
 
 void receive(void)
 {
-	char packet [32];
+	uint8_t packetBroad [32];
+	uint8_t packetBroad_buffer [32];
+	uint8_t packetPersonal [32];
+	uint8_t packetPersonal_buffer [32]; 
+	
 	nrfOpenReadingPipe(0, pipe);
 
 	uint8_t tx_ds, max_rt, rx_dr;
@@ -99,9 +109,22 @@ void receive(void)
 	if (rx_dr)
 	{
 		uint8_t length = nrfGetDynamicPayloadSize();
-		nrfRead(packet, 32); // Lees 32 bytes in plaats van 8
-		packet[length] = '\0';
-		printf("\nOntvangen bericht: %s\n", packet); // Druk het volledige ontvangen bericht af
+		
+		nrfReadRegisterMulti(REG_RX_ADDR_P0, packetBroad, 32);
+		nrfReadRegisterMulti(REG_RX_ADDR_P1, packetPersonal, 32);
+		
+		if (packetBroad != 0){
+			nrfRead(packetBroad_buffer, 32);
+			packetBroad_buffer[length] = '\0';
+			
+			printf("\nOntvangen bericht: %s\n", packetBroad_buffer);
+		}
+		else if (packetPersonal != 0){
+			nrfRead(packetPersonal_buffer, 32);
+			packetPersonal_buffer[length] = '\0';
+			
+			printf("\nOntvangen bericht: %s\n", packetPersonal_buffer);
+		}
 		
 		PORTF.DIRSET = PIN0_bm;
 		PORTF.OUTTGL = PIN0_bm;

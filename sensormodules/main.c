@@ -2,8 +2,8 @@
 
 #include <avr/io.h>
 #include <util/delay.h>
-#include "nrf24spiXM2.h"
-#include "nrf24L01.h"
+#include "nrf24/nrf24spiXM2.h"
+#include "nrf24/nrf24L01.h"
 #include "serialF0.h"
 #include <avr/interrupt.h>
 #include <stdbool.h>
@@ -12,8 +12,8 @@
 #define TEAM_NUMMER 0x10
 
 uint8_t pipe[5] = {0x48, 0x76, 0x41, 0x30, 0x31}; // pipe address "HvA01"
-uint8_t IDpipe[5] = {0x32, 0x73, 0x65, 0x78, 0x79}; 
-	
+uint8_t IDpipe[5] = {0x32, 0x73, 0x65, 0x78, 0x79};
+
 
 //used functions
 void init_nrf(void);
@@ -21,7 +21,7 @@ void send(char *command);
 void receive(void);
 
 int main(void)
-	{
+{
 	PORTF.DIRSET = PIN1_bm;
 	PORTF.OUTSET = PIN1_bm;
 
@@ -95,10 +95,15 @@ void send(char *command)
 
 void receive(void)
 {
-	char packet [32];
+	uint8_t packetBroad [32];
+	uint8_t packetBroad_buffer [32];
+	uint8_t packetPersonal [32];
+	uint8_t packetPersonal_buffer [32];
+	
 	nrfOpenReadingPipe(0, pipe);
 
 	uint8_t tx_ds, max_rt, rx_dr;
+
 	nrfWhatHappened(&tx_ds, &max_rt, &rx_dr);
 	
 	if (rx_dr)

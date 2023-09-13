@@ -9,6 +9,8 @@
 #include <stdbool.h>
 #include <string.h>
 
+#define TEAM_NUMMER 0x10
+
 uint8_t pipe[5] = {0x48, 0x76, 0x41, 0x30, 0x31}; // pipe address "HvA01"
 
 //used fuctions
@@ -17,40 +19,44 @@ void send(char *command);
 void receive(void);
 
 int main(void)
-{	
+{
+	PORTF.DIRSET = PIN1_bm;
+	PORTF.OUTSET = PIN1_bm;
 	// initialisations
 	init_stream(F_CPU);
 	init_nrf();
 
+	PORTD.DIRCLR=PIN0_bm|PIN1_bm|PIN2_bm|PIN3_bm;
+	uint8_t id;
+	id=TEAM_NUMMER|(PORTD.IN & PIN0_bm)|(PORTD.IN & PIN1_bm)|(PORTD.IN & PIN2_bm)|(PORTD.IN & PIN3_bm);
+	
+	sei();
+	printf("%x\n",id);
 	printf("Enter Message: ");
 
-	PORTF.DIRSET = PIN1_bm;
-	PORTF.OUTSET = PIN1_bm;
+	char command[50];
 	_delay_ms(20);
 	PORTF.OUTTGL = PIN1_bm;
-	sei();
-
-    char command[50]; 
 	
-    while (1) {
-	    uint16_t userInput = uartF0_getc();
-	    if (userInput != UART_NO_DATA) {
-		    if (userInput == '\n' || userInput == '\r') {
-			    command[strlen(command)] = '\0';
-			    send(command);
-			    memset(command, 0, sizeof(command));
-			    } else {
-			    if (strlen(command) < sizeof(command) - 1) {
-				    command[strlen(command)] = (char)userInput;
-			    }
-		    }
+	while (1) {
+		uint16_t userInput = uartF0_getc();
+		if (userInput != UART_NO_DATA) {
+			if (userInput == '\n' || userInput == '\r') {
+				command[strlen(command)] = '\0';
+				send(command);
+				memset(command, 0, sizeof(command));
+				} else {
+				if (strlen(command) < sizeof(command) - 1) {
+					command[strlen(command)] = (char)userInput;
+				}
+			}
 		}
 		
 		else if (userInput == UART_NO_DATA){
 			receive();
 		}
-    }
-    return 0;
+	}
+	return 0;
 }
 
 void init_nrf(void)
@@ -92,7 +98,7 @@ void receive(void)
 	nrfWhatHappened(&tx_ds, &max_rt, &rx_dr);
 	
 	if (rx_dr)
-	{	
+	{
 		uint8_t length = nrfGetDynamicPayloadSize();
 		nrfRead(packet, 32); // Lees 32 bytes in plaats van 8
 		packet[length] = '\0';

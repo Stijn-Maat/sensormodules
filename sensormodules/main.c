@@ -12,8 +12,8 @@
 #define TEAM_NUMBER 0x10
 #define MAX_COMMAND_LENGHT 50
 
-char pipe[5] = "HvA01";
-char IDpipe[5] = "2sexy";
+char pipe[5] = "2sexy";
+char IDpipe[5] = "sexyA";
 
 
 //used functions
@@ -73,7 +73,7 @@ void init_nrf(void)
 	nrfSetDataRate(NRF_RF_SETUP_RF_DR_250K_gc);// Data Rate: 250 Kbps
 	nrfSetCRCLength(NRF_CONFIG_CRC_16_gc);     // CRC Check
 	nrfSetChannel(54);                         // Channel: 54
-	nrfSetAutoAck(1);                          // Auto Acknowledge on
+	nrfSetAutoAck(0);                          // Auto Acknowledge on
 	nrfEnableDynamicPayloads();                // Enable Dynamic Payloads
 	nrfClearInterruptBits();                   // Clear interrupt bits
 	nrfFlushRx();                              // Flush fifo's
@@ -88,9 +88,9 @@ void init_nrf(void)
 void send(char *command)
 {
 	nrfStopListening();
-	uint8_t response = nrfWrite((uint8_t *)command, strlen(command));
+	nrfWrite((uint8_t *)command, strlen(command));
 	
-	printf("\nVerzonden: %s\nAck ontvangen: %s\n", command, response > 0 ? "JA" : "NEE");
+	printf("\nVerzonden: %s\n", command);
 	nrfStartListening();
 }
 
@@ -101,8 +101,6 @@ void receive(void)
 	uint8_t packetPersonal [32];
 	uint8_t packetPersonal_buffer [32];
 	
-	//	nrfOpenReadingPipe(0, pipe);
-
 	uint8_t tx_ds, max_rt, rx_dr;
 
 	nrfWhatHappened(&tx_ds, &max_rt, &rx_dr);
@@ -119,13 +117,16 @@ void receive(void)
 			packetBroad_buffer[length] = '\0';
 			
 			printf("\nOntvangen bericht: %s\n", packetBroad_buffer);
+			
 		}
 		else if (packetPersonal != 0){
 			nrfRead(packetPersonal_buffer, 32);
 			packetPersonal_buffer[length] = '\0';
 			
 			printf("\nOntvangen bericht: %s\n", packetPersonal_buffer);
+			
 		}
-		PORTF.OUTTGL = PIN0_bm;
+		PORTF.OUTSET = PIN0_bm;
 	}
+	PORTF.OUTCLR = PIN0_bm;
 }

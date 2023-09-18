@@ -64,6 +64,7 @@ int main(void)
 
 void init_nrf(void)
 {
+	PORTF.DIRSET = PIN0_bm;
 	nrfspiInit();                              // Initialize SPI
 	nrfBegin();                                // Initialize radio module
 	nrfSetRetries(NRF_SETUP_ARD_1000US_gc,     // Auto Retransmission Delay: 1000 us
@@ -125,8 +126,6 @@ void receive(void)
 			
 			printf("\nOntvangen bericht: %s\n", packetPersonal_buffer);
 		}
-		
-		PORTF.DIRSET = PIN0_bm;
 		PORTF.OUTTGL = PIN0_bm;
 	}
 }

@@ -6,14 +6,17 @@
 #include "nrf24L01.h"
 #include "serialF0.h"
 #include <avr/interrupt.h>
-#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define TEAM_NUMBER 0x10
 #define MAX_COMMAND_LENGHT 50
 
-char pipe[5] = "HvA01";
-char IDpipe[5] = "2sexy";
+#define MY_ID 0x41 //A = 0x41, B = 0x42, C = 0x43 
+
+char pipe[5] = {'2','s','e','x','y'};
+char IDpipe[5] = {'s','e','x','y',MY_ID};
 
 
 //used functions
@@ -46,7 +49,6 @@ int main(void)
 		uint16_t userInput = uartF0_getc();
 		if (userInput != UART_NO_DATA) {
 			if (userInput == '\n' || userInput == '\r') {
-				//command[strlen(command)] = '\0';
 				send(command);
 				memset(command, 0, MAX_COMMAND_LENGHT);
 			}
@@ -73,7 +75,7 @@ void init_nrf(void)
 	nrfSetDataRate(NRF_RF_SETUP_RF_DR_250K_gc);// Data Rate: 250 Kbps
 	nrfSetCRCLength(NRF_CONFIG_CRC_16_gc);     // CRC Check
 	nrfSetChannel(54);                         // Channel: 54
-	nrfSetAutoAck(1);                          // Auto Acknowledge on
+	nrfSetAutoAck(0);                          // Auto Acknowledge on
 	nrfEnableDynamicPayloads();                // Enable Dynamic Payloads
 	nrfClearInterruptBits();                   // Clear interrupt bits
 	nrfFlushRx();                              // Flush fifo's
@@ -87,22 +89,33 @@ void init_nrf(void)
 
 void send(char *command)
 {
-	nrfStopListening();
-	uint8_t response = nrfWrite((uint8_t *)command, strlen(command));
+	char ID = MY_ID;
 	
-	printf("\nVerzonden: %s\nAck ontvangen: %s\n", command, response > 0 ? "JA" : "NEE");
-	nrfStartListening();
+	size_t commandlength = strlen(command);
+	
+	char *data = (char *)malloc(commandlength + 2);
+	
+	data[0] = ID;
+	
+	strcpy(data + 1, command);
+	
+	nrfStopListening();  
+	nrfWrite((uint8_t *)data, sizeof(data));
+	
+	printf("\nVerzonden:%s\n", data);
+	nrfStartListening(); 
+	
+	free(data);
+	
 }
 
 void receive(void)
 {
-	uint8_t packetBroad [32];
-	uint8_t packetBroad_buffer [32];
-	uint8_t packetPersonal [32];
-	uint8_t packetPersonal_buffer [32];
+	uint8_t packetBroad [32] = { 0 };
+	uint8_t packetBroad_buffer [32] = { 0 };
+	uint8_t packetPersonal [32] = { 0 };
+	uint8_t packetPersonal_buffer [32] = { 0 };
 	
-	//	nrfOpenReadingPipe(0, pipe);
-
 	uint8_t tx_ds, max_rt, rx_dr;
 
 	nrfWhatHappened(&tx_ds, &max_rt, &rx_dr);
@@ -119,13 +132,16 @@ void receive(void)
 			packetBroad_buffer[length] = '\0';
 			
 			printf("\nOntvangen bericht: %s\n", packetBroad_buffer);
+			
 		}
 		else if (packetPersonal != 0){
 			nrfRead(packetPersonal_buffer, 32);
 			packetPersonal_buffer[length] = '\0';
 			
 			printf("\nOntvangen bericht: %s\n", packetPersonal_buffer);
+			
 		}
-		PORTF.OUTTGL = PIN0_bm;
+		PORTF.OUTSET = PIN0_bm;
 	}
+	PORTF.OUTCLR = PIN0_bm;
 }

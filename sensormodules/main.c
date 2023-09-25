@@ -12,58 +12,81 @@
 #include <string.h>
 
 #define TEAM_NUMBER 0x10
-#define MAX_COMMAND_LENGHT 50
 
-#define MY_ID 0x41 //A = 0x41, B = 0x42, C = 0x43 
 
-uint8_t pipe[5] = {0x32,0x73,0x65,0x78,0x79}; // "2sexy"
-uint8_t IDpipe[5] = {0x73,0x65,0x78,0x79,MY_ID}; //"sexy + MY_ID"
-uint8_t TXpipe[5] = {0x73,0x65,0x78,0x79,0x42};    // "sexy + 41"
 
 //used functions
-void init_nrf(void);
-void send(char *command);
-void receive(void);
+void init_nrf(void); // start the nRF 
+void get_broadcast(uint8_t *id, uint8_t data[31]); //get message received on broadcast pipe and process
+void get_personal(void); //get message received on personal pipe and process
+uint8_t get_my_id(void); //reads io pins that form the node ID, opens pipe 1 with the node ID and returns the ID
+void send(void); //sending message over variable pipe address	
+uint8_t receive(void); //checks for something being received and returns the pipe that received the message
 
-int main(void)
-{
-	PORTF.DIRSET = PIN1_bm;
-	PORTF.OUTSET = PIN1_bm;
 
-	// initializations
+uint8_t broadcast_pipe[5] = {0x32,0x73,0x65,0x78,0x79}; // "2sexy"
+
+//uint8_t send_pipe[5] = {0x73,0x65,0x78,0x79,send_id};    // "sexy + ?
+	
+int main(void){
+	
 	init_stream(F_CPU);
+	sei();
+	
 	init_nrf();
+	uint8_t my_id = get_my_id();
 
+	while (1) {
+		
+		uint8_t pipe = receive();
+		
+		if (pipe == 0){ //broadcast
+			
+		}
+		else { //personal
+			
+		} 
+		
+	
+	}
+}
+
+void get_broadcast(uint8_t *id, uint8_t *data){
+	//byte 0 = id, byte 1:31 = neighbor data
+	
+	uint8_t buf[32]; 
+	uint8_t len = nrfGetDynamicPayloadSize();
+	nrfRead(buf,len); //read the packet recieved and place in buf
+	buf[len]='\0';
+	
+	*id = buf[0];
+	
+	memcpy(data, buf+1, len-1);
+	
+	
+}
+
+void get_personal(void){
+	//byte 0 = adress, 
+}
+
+uint8_t get_my_id(void){
+	
+	//init address pins with a pulldown
 	PORTD.DIRCLR=PIN0_bm|PIN1_bm|PIN2_bm|PIN3_bm;
+	PORTD.PIN0CTRL = PORT_OPC_PULLDOWN_gc;
+	PORTD.PIN1CTRL = PORT_OPC_PULLDOWN_gc;
+	PORTD.PIN2CTRL = PORT_OPC_PULLDOWN_gc;
+	PORTD.PIN3CTRL = PORT_OPC_PULLDOWN_gc;
+	
 	uint8_t id;
 	id=TEAM_NUMBER|(PORTD.IN & PIN0_bm)|(PORTD.IN & PIN1_bm)|(PORTD.IN & PIN2_bm)|(PORTD.IN & PIN3_bm);
-
-	sei();
-	printf("%x\n",id);
-	printf("Enter Message: ");
-
-	char command[MAX_COMMAND_LENGHT];
-	_delay_ms(20);
-	PORTF.OUTTGL = PIN1_bm;
 	
-	while (1) {
-		uint16_t userInput = uartF0_getc();
-		if (userInput != UART_NO_DATA) {
-			if (userInput == '\n' || userInput == '\r') {
-				send(command);
-				memset(command, 0, MAX_COMMAND_LENGHT);
-			}
-			else if (strlen(command) < MAX_COMMAND_LENGHT - 1) {
-				command[strlen(command)] = (char)userInput;
-			}
-		}
-		
-		else if (userInput == UART_NO_DATA){
-			receive();
-		}
-	}
-	return 0;
+	uint8_t recieve_pipe[5] = {0x73,0x65,0x78,0x79,id}; //"sexy + id"
+	nrfOpenReadingPipe(1, recieve_pipe);
 }
+
+	
 
 void init_nrf(void)
 {
@@ -80,67 +103,46 @@ void init_nrf(void)
 	nrfFlushRx();                              // Flush fifo's
 	nrfFlushTx();
 	
-	nrfOpenWritingPipe((uint8_t *) TXpipe);                  // Pipe for sending
-	nrfOpenReadingPipe(0, (uint8_t *) pipe);               // Necessary for acknowledge
-	nrfOpenReadingPipe(1, (uint8_t *) IDpipe);
+	nrfOpenReadingPipe(0, (uint8_t *) broadcast_pipe);               // Necessary for acknowledge
+	
 	nrfStartListening();
 }
 
-void send(char *command)
-{
-	char ID = MY_ID;
-	
-	size_t commandlength = strlen(command);
-	
-	char data[commandlength + 2];
-	
-	data[0] = ID;
-	
-	strcpy(data + 1, command);
-	
-	nrfStopListening();  
-	nrfWrite((uint8_t *)data, strlen(data));
-	
-	printf("\nVerzonden:%s\n", data);
-	nrfStartListening(); 
-	
 
+
+void send(void)
+{
 	
+	//nrfStopListening(); 
+	//nrfOpenWritingPipe();
+	  //
+	//nrfWrite((uint8_t *)data, strlen(data));
+	//nrfStartListening();
+
 }
 
-void receive(void)
-{
-	uint8_t packetBroad [32] = { 0 };
-	uint8_t packetBroad_buffer [32] = { 0 };
-	uint8_t packetPersonal [32] = { 0 };
-	uint8_t packetPersonal_buffer [32] = { 0 };
-	
-	uint8_t tx_ds, max_rt, rx_dr;
 
-	nrfWhatHappened(&tx_ds, &max_rt, &rx_dr);
+
+uint8_t receive(void)
+{
+    
+    uint8_t status;
+    uint8_t pipe;
+    uint8_t tx_ds, max_rt, rx_dr;
+
+    nrfWhatHappened(&tx_ds, &max_rt, &rx_dr);
+    
+    if (rx_dr)
+    {
+	    PORTF.OUTSET = PIN0_bm;
+	    
+	    status=nrfGetStatus(); 
+	    //pipe = (status>>1)&0x7;
+		pipe = (status & NRF_STATUS_RX_P_NO_gm) >> NRF_STATUS_RX_P_NO_gp;
+
+    }
 	
-	if (rx_dr)
-	{
-		uint8_t length = nrfGetDynamicPayloadSize();
-		
-		nrfReadRegisterMulti(REG_RX_ADDR_P0, packetBroad, 32);
-		nrfReadRegisterMulti(REG_RX_ADDR_P1, packetPersonal, 32);
-		
-		if (packetBroad != 0){
-			nrfRead(packetBroad_buffer, 32);
-			packetBroad_buffer[length] = '\0';
-			
-			printf("\nOntvangen bericht: %s\n", packetBroad_buffer);
-			
-		}
-		else if (packetPersonal != 0){
-			nrfRead(packetPersonal_buffer, 32);
-			packetPersonal_buffer[length] = '\0';
-			
-			printf("\nOntvangen bericht: %s\n", packetPersonal_buffer);
-			
-		}
-		PORTF.OUTSET = PIN0_bm;
-	}
-	PORTF.OUTCLR = PIN0_bm;
+	return pipe;
+	
+    PORTF.OUTCLR = PIN0_bm;
 }

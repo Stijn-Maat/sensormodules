@@ -143,6 +143,12 @@
     <Compile Include="main.c">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="Neighbor.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="Neighbor.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="nrf24L01.c">
       <SubType>compile</SubType>
     </Compile>
@@ -155,9 +161,6 @@
     <Compile Include="nrf24spiXM2.h">
       <SubType>compile</SubType>
     </Compile>
-    <None Include="receiver.c">
-      <SubType>compile</SubType>
-    </None>
     <Compile Include="serialF0.c">
       <SubType>compile</SubType>
     </Compile>

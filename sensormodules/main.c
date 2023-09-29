@@ -2,78 +2,74 @@
 
 #include <avr/io.h>
 #include <util/delay.h>
+#include <avr/pgmspace.h>
 #include "nrf24spiXM2.h"
 #include "nrf24L01.h"
 #include "serialF0.h"
 #include <avr/interrupt.h>
-#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
+#include "Neighbor.h"
 
-#define TEAM_NUMBER 0x10
+#define TEAM_NUMBER 0x1 << 5
 #define MAX_COMMAND_LENGHT 50
 
-char pipe[5] = "HvA01";
-char IDpipe[5] = "2sexy";
-
-
 //used functions
-void init_nrf(void);
-void send(char *command);
-void receive(void);
+void init_nrf();
+void send_id(uint8_t id);
+void send_neighbor_id(uint8_t id);
+void receive_id();
+void dag_buurman ();
+void init_timer();
+void pingOfLife ();
+void print_neighbors();
+
+uint8_t pipe[5] = {0x32,0x73,0x65,0x78,0x81}; // "2sexy"
+uint8_t IDpipe[5] = {0x73,0x65,0x78,0x79, 0XFF}; //"sexy + MY_ID"
+uint8_t TXpipe[5] = {0x73,0x65,0x78,0x79,0x42};    // "sexy + 41"
+uint8_t id;
+
 
 int main(void)
 {
-	PORTF.DIRSET = PIN1_bm;
-	PORTF.OUTSET = PIN1_bm;
+	PORTF.DIRSET = PIN0_bm | PIN1_bm;
 
 	// initializations
 	init_stream(F_CPU);
+	
 	init_nrf();
-
+	init_timer();
+	
 	PORTD.DIRCLR=PIN0_bm|PIN1_bm|PIN2_bm|PIN3_bm;
-	uint8_t id;
+	
 	id=TEAM_NUMBER|(PORTD.IN & PIN0_bm)|(PORTD.IN & PIN1_bm)|(PORTD.IN & PIN2_bm)|(PORTD.IN & PIN3_bm);
 
 	sei();
-	printf("%x\n",id);
-	printf("Enter Message: ");
-
-	char command[MAX_COMMAND_LENGHT];
+	
+	//printf("%x\n",id);
 	_delay_ms(20);
-	PORTF.OUTTGL = PIN1_bm;
+	PORTF.OUTTGL = PIN0_bm;
 	
 	while (1) {
-		uint16_t userInput = uartF0_getc();
-		if (userInput != UART_NO_DATA) {
-			if (userInput == '\n' || userInput == '\r') {
-				//command[strlen(command)] = '\0';
-				send(command);
-				memset(command, 0, MAX_COMMAND_LENGHT);
-			}
-			else if (strlen(command) < MAX_COMMAND_LENGHT - 1) {
-				command[strlen(command)] = (char)userInput;
-			}
-		}
+		receive_id();
 		
-		else if (userInput == UART_NO_DATA){
-			receive();
-		}
+		//print_neighbors();
 	}
-	return 0;
 }
 
 void init_nrf(void)
 {
-	PORTF.DIRSET = PIN0_bm;
+	//PORTF.DIRSET = PIN0_bm;
 	nrfspiInit();                              // Initialize SPI
 	nrfBegin();                                // Initialize radio module
-	nrfSetRetries(NRF_SETUP_ARD_1000US_gc,     // Auto Retransmission Delay: 1000 us
-	NRF_SETUP_ARC_8RETRANSMIT_gc);			   // Auto Retransmission Count: 8 retries
 	nrfSetPALevel(NRF_RF_SETUP_PWR_6DBM_gc);   // Power Control: -6 dBm
+	nrfSetRetries(NRF_SETUP_ARD_1000US_gc, NRF_SETUP_ARC_NORETRANSMIT_gc);
 	nrfSetDataRate(NRF_RF_SETUP_RF_DR_250K_gc);// Data Rate: 250 Kbps
 	nrfSetCRCLength(NRF_CONFIG_CRC_16_gc);     // CRC Check
 	nrfSetChannel(54);                         // Channel: 54
-	nrfSetAutoAck(1);                          // Auto Acknowledge on
+	nrfSetAutoAck(0);                          // Auto Acknowledge on
 	nrfEnableDynamicPayloads();                // Enable Dynamic Payloads
 	nrfClearInterruptBits();                   // Clear interrupt bits
 	nrfFlushRx();                              // Flush fifo's
@@ -85,47 +81,49 @@ void init_nrf(void)
 	nrfStartListening();
 }
 
-void send(char *command)
+void send_id(uint8_t id)
 {
 	nrfStopListening();
-	uint8_t response = nrfWrite((uint8_t *)command, strlen(command));
-	
-	printf("\nVerzonden: %s\nAck ontvangen: %s\n", command, response > 0 ? "JA" : "NEE");
+	nrfWrite(&id, sizeof(id));
 	nrfStartListening();
 }
 
-void receive(void)
-{
-	uint8_t packetBroad [32];
-	uint8_t packetBroad_buffer [32];
-	uint8_t packetPersonal [32];
-	uint8_t packetPersonal_buffer [32];
-	
-	//	nrfOpenReadingPipe(0, pipe);
 
+void receive_id()
+{
+	uint8_t packetBuffer[32] = {0};
 	uint8_t tx_ds, max_rt, rx_dr;
 
 	nrfWhatHappened(&tx_ds, &max_rt, &rx_dr);
-	
+
 	if (rx_dr)
 	{
 		uint8_t length = nrfGetDynamicPayloadSize();
+		nrfRead(packetBuffer, length);
 		
-		nrfReadRegisterMulti(REG_RX_ADDR_P0, packetBroad, 32);
-		nrfReadRegisterMulti(REG_RX_ADDR_P1, packetPersonal, 32);
-		
-		if (packetBroad != 0){
-			nrfRead(packetBroad_buffer, 32);
-			packetBroad_buffer[length] = '\0';
-			
-			printf("\nOntvangen bericht: %s\n", packetBroad_buffer);
-		}
-		else if (packetPersonal != 0){
-			nrfRead(packetPersonal_buffer, 32);
-			packetPersonal_buffer[length] = '\0';
-			
-			printf("\nOntvangen bericht: %s\n", packetPersonal_buffer);
-		}
-		PORTF.OUTTGL = PIN0_bm;
+		// Verwerk het ontvangen ID
+		//printf("Ontvangen ID: %02X\n", packetBuffer[0]);
+		received_packet(packetBuffer, length, pipe);
 	}
+}
+
+void init_timer(void)
+{
+	TCC0.CTRLB = TC0_CCAEN_bm | TC_WGMODE_NORMAL_gc;
+	TCC0.CTRLA = TC_CLKSEL_DIV8_gc;
+	TCC0.INTCTRLA = TC_OVFINTLVL_LO_gc;
+	TCC0.PER = 62499;
+}
+ISR(TCC0_OVF_vect)
+{
+	PORTF.OUTSET = PIN1_bm;
+	pingOfLife();
+	PORTF.OUTTGL = PIN1_bm;
+}
+void pingOfLife(void)
+{
+	nrfStopListening();
+	send_id(id);
+	nrfStartListening();
+	//printf("ID sending: %02X\n", id); // Voeg deze regel toe
 }

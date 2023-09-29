@@ -1,16 +1,27 @@
-/*
- * neighbour.h
- *
- * Created: 18-9-2023 14:04:19
- *  Author: StynM
- */ 
+#ifndef NEIGHBORH
+#define NEIGHBORH
 
+#include <stdio.h>
+#include <string.h>
+#include <stdbool.h>
+#include "serialF0.h"
 
-#ifndef NEIGHBOUR_H_
-#define NEIGHBOUR_H_
+#define MY_ID 0x47 // A = 0x41, B = 0x42, C = 0x43
 
+typedef struct Neighbor {
+	uint8_t id;
+	uint8_t hops;
+	uint8_t next_neighbor_id;
+	uint8_t valid_time;
+} Neighbor_t;
 
+extern uint8_t packetBuffer[32];
 
+bool is_id_in_neighbors(uint8_t id);
+void remove_neighbor(uint8_t id);
+void received_packet(uint8_t *packet, uint8_t length, uint8_t receivePipe);
+void add_neighbor();
+void cal_hops(uint8_t source_id, uint8_t neighbor_id, uint8_t destination_id);
+bool add_next_neighbor(uint8_t destination_id, uint8_t next_neighbor_id, Neighbor_t newNeighbor);
 
-
-#endif /* NEIGHBOUR_H_ */
+#endif /* NEIGHBOR */

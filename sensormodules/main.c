@@ -2,7 +2,6 @@
 
 #include <avr/io.h>
 #include <util/delay.h>
-#include <avr/pgmspace.h>
 #include "nrf24spiXM2.h"
 #include "nrf24L01.h"
 #include "serialF0.h"
@@ -25,11 +24,13 @@ void dag_buurman ();
 void init_timer();
 void pingOfLife ();
 void print_neighbors();
+void count_down();
 
 uint8_t pipe[5] = {0x32,0x73,0x65,0x78,0x81}; // "2sexy"
 uint8_t IDpipe[5] = {0x73,0x65,0x78,0x79, 0XFF}; //"sexy + MY_ID"
 uint8_t TXpipe[5] = {0x73,0x65,0x78,0x79,0x42};    // "sexy + 41"
 uint8_t id;
+volatile bool timerInterruptFlag = false;
 
 
 int main(void)
@@ -47,15 +48,19 @@ int main(void)
 	id=TEAM_NUMBER|(PORTD.IN & PIN0_bm)|(PORTD.IN & PIN1_bm)|(PORTD.IN & PIN2_bm)|(PORTD.IN & PIN3_bm);
 
 	sei();
-	
-	//printf("%x\n",id);
+
 	_delay_ms(20);
 	PORTF.OUTTGL = PIN0_bm;
 	
 	while (1) {
 		receive_id();
 		
-		//print_neighbors();
+		print_neighbors();
+		
+		if (timerInterruptFlag) {
+			count_down();
+			timerInterruptFlag = false; // Reset the flag
+		}
 	}
 }
 
@@ -83,6 +88,7 @@ void init_nrf(void)
 
 void send_id(uint8_t id)
 {
+	//verzend id die wordt uitgelezen
 	nrfStopListening();
 	nrfWrite(&id, sizeof(id));
 	nrfStartListening();
@@ -103,7 +109,7 @@ void receive_id()
 		
 		// Verwerk het ontvangen ID
 		//printf("Ontvangen ID: %02X\n", packetBuffer[0]);
-		received_packet(packetBuffer, length, pipe);
+		received_packet(packetBuffer, length, *pipe); // hierbij moet de juiste pipe nog worden aangegeven
 	}
 }
 
@@ -116,14 +122,12 @@ void init_timer(void)
 }
 ISR(TCC0_OVF_vect)
 {
-	PORTF.OUTSET = PIN1_bm;
 	pingOfLife();
 	PORTF.OUTTGL = PIN1_bm;
+	timerInterruptFlag = true; // activeer flag
 }
 void pingOfLife(void)
 {
-	nrfStopListening();
 	send_id(id);
-	nrfStartListening();
-	//printf("ID sending: %02X\n", id); // Voeg deze regel toe
+	//verstuur je buren ook mee 
 }

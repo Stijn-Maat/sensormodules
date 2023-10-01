@@ -8,19 +8,21 @@
 Neighbor_t neighbors[MAX_NEIGHBORS];
 uint8_t numNeighbors = 0;
 
-bool is_id_in_neighbors(uint8_t id) {
-	for (uint8_t i = 0; i < numNeighbors; i++) { // Iterate only over valid neighbors
-		if (neighbors[i].id == id) {
-			return true;
+uint8_t* get_neighbors(uint8_t *id) {
+	for (uint8_t i = 0; i < numNeighbors; i++) {
+		if (neighbors[i].id == *id) {
+			return &(neighbors[i].id);
 		}
 	}
-	return false;
+	return NULL;
 }
+
 
 void add_neighbor(Neighbor_t newNeighbor) {
 	if (numNeighbors < MAX_NEIGHBORS) {
 		neighbors[numNeighbors++] = newNeighbor;
-		} else {
+		} 
+		else {
 		printf("Max neighbors reached.\n");
 	}
 }
@@ -37,7 +39,7 @@ void remove_neighbor(uint8_t id) {
 		}
 	}
 }
-
+//ontvangen en opdelen van het packet in packetbuffer
 void received_packet(uint8_t *packet, uint8_t length, uint8_t receivePipe) {
 
 	Neighbor_t newNeighbor;
@@ -45,11 +47,14 @@ void received_packet(uint8_t *packet, uint8_t length, uint8_t receivePipe) {
 	newNeighbor.hops = 0;
 	newNeighbor.next_neighbor_id = 0;
 	newNeighbor.valid_time = FORGET_BUURMAN_TIME;
+	// hiervoor get_neigbour toevoegen voor selecteren of buur al bestaat of niet
 	add_neighbor(newNeighbor);
 	return;
 }
 
-bool add_next_neighbor(uint8_t destination_id, uint8_t next_neigbor_id, Neighbor_t newNeighbor){
+//goed idee moet alleen nog uitgewerkt worden
+
+/*bool add_next_neighbor(uint8_t destination_id, uint8_t next_neigbor_id, Neighbor_t newNeighbor){
 	uint8_t send = 1;
 	next_neigbor_id = newNeighbor.id;
 	
@@ -84,56 +89,10 @@ bool add_next_neighbor(uint8_t destination_id, uint8_t next_neigbor_id, Neighbor
 		}
 	}
 	return false;
-}
+}*/
 
-//iemand wil naar sensor ?? iets sturen
-//aan de directe buren wordt gevraagd of die sensor ?? kent (de burenlijst van de directe buur wordt opgehaald)
-//kent de directe buur hem niet, dan wordt aan zijn buur gevraagd of die hem kent
-//ja
-//nee
-//etc.
 
-void cal_hops(uint8_t source_id, uint8_t neighbor_id, uint8_t destination_id) {
-	// Implement your logic for calculating hops here
-	// You need to consider the current neighbor list to calculate hops
-	
-	// Create a queue for BFS traversal
-	uint8_t queue[MAX_NEIGHBORS];
-	bool visited[MAX_NEIGHBORS];
-	
-	// Initialize the queue and visited array
-	for (uint8_t i = 0; i < numNeighbors; i++) {
-		queue[i] = 0;
-		visited[i] = false;
-	}
-
-	// Start BFS algorithm
-	uint8_t front = 0;
-	uint8_t rear = 0;
-	uint8_t current_id = source_id = MY_ID;
-	uint8_t hops = 0;
-
-	while (current_id != destination_id && front <= rear) {
-		current_id = queue[front++];
-		visited[current_id] = true;
-
-		// Explore neighbors of the current node
-		for (uint8_t i = 0; i < numNeighbors; i++) {
-			if (!visited[i] && neighbors[i].id == current_id) {
-				// Add neighbors to the queue
-				queue[++rear] = neighbors[i].next_neighbor_id;
-			}
-		}
-
-		// Increment the number of hops
-		hops++;
-	}
-
-	if (current_id != destination_id) {
-		printf("No path found from %02X to %02X\n", source_id, destination_id);
-	}
-}
-
+//printen burenlijst
 void print_neighbors() {
 	printf("Burenlijst:\n");
 	for (uint8_t i = 0; i < numNeighbors; i++) {
@@ -141,3 +100,20 @@ void print_neighbors() {
 		neighbors[i].id, neighbors[i].hops, neighbors[i].valid_time, neighbors[i].next_neighbor_id);
 	}
 }
+
+// functie voor het aftellen van de valid_time wanneer id niet meer relevant is
+void count_down() {
+	for (uint8_t i = FORGET_BUURMAN_TIME - 1; i >= 0; i--) {
+		if (neighbors[i].valid_time > 0) {
+			neighbors[i].valid_time--;
+		}
+		if (neighbors[i].valid_time == 0) {
+			remove_neighbor(neighbors[i].id);
+		}
+		if (neighbors[i].valid_time == FORGET_BUURMAN_TIME + 1) {
+			remove_neighbor(neighbors[i].id);
+		}
+	}
+}
+
+

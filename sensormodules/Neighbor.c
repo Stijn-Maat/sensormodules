@@ -60,9 +60,11 @@ void add_neighbor(uint8_t broad_id,uint8_t broad_nodes, uint8_t *buf) {
 				}
 			}
 			new_neighbor(broad_id,numNeighbors,broad_nodes,buf);
+			numNeighbors++;
 			return;	
 		}
 		new_neighbor(broad_id,numNeighbors,broad_nodes,buf);
+		numNeighbors++
 		return;
 	}
 	else {
